@@ -67,7 +67,7 @@ Response:
 Use the included script:
 
 ```bash
-python scripts/batch_predict.py path/to/historical_ap_data.csv path/to/incoming_ap_data.jsonl --out match_map.csv
+python scripts/batch_predict.py ../historical_ap_data.csv ../incoming_ap_data.jsonl --out match_map.csv
 ```
 
 Output format (exact schema required):
