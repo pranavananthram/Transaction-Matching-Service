@@ -18,6 +18,8 @@ docker compose up --build
 - Interactive docs: http://localhost:8000/docs
 - Basic health check: GET http://localhost:8000/health
 
+3. API hosted through AWS: http://3.144.97.206:8000/
+
 ## Run locally (without Docker)
 Create and activate a Python 3.11 environment (conda or venv), then:
 
