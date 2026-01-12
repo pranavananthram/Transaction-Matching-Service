@@ -1,0 +1,84 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>SpendAI - Match UI</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; }
+    textarea { width: 100%; height: 180px; }
+    .btn { margin-top: 10px; }
+    table { border-collapse: collapse; width: 100%; margin-top: 20px; }
+    th, td { border: 1px solid #ddd; padding: 8px; }
+    th { background: #f4f4f4; }
+    .score { font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>SpendAI - Match Debug UI</h1>
+  <p>Paste incoming AP JSON (one record) and click <em>Match</em>.</p>
+  <textarea id="payload">{
+  "ap_line_id": "APN-00000002",
+  "purch_order_key": "NPO-2025-000001",
+  "polnno": "20",
+  "bill_identifier": "NINV-2025-000001",
+  "memodetails": "capital spares - silverline REF-31",
+  "suppliername": "SilverLine Precision",
+  "material_description": "ATEX 3in EPDM Stainless Valve, 16 bar",
+  "qty_ordered": "1",
+  "eachrate": "7178.50",
+  "line_itemsumamt": "7522.82",
+  "raw_currency": "CAD"
+}</textarea>
+  <div>
+    <label>Top K: <input id="topk" type="number" value="5" min="1" max="20"></label>
+    <button id="matchBtn" class="btn">Match</button>
+  </div>
+
+  <div id="result"></div>
+
+  <script>
+    document.getElementById('matchBtn').addEventListener('click', async () => {
+      const payloadText = document.getElementById('payload').value;
+      let payload;
+      try { payload = JSON.parse(payloadText); } catch (e) { alert('Invalid JSON'); return; }
+      payload.top_k = parseInt(document.getElementById('topk').value) || 5;
+      const resp = await fetch('/match/debug', {
+        method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload)
+      });
+      const data = await resp.json();
+      const out = document.getElementById('result');
+      if (!data.candidates) { out.innerHTML = '<p>No candidates returned.</p>'; return; }
+      let html = `<h2>Incoming: ${data.incoming_ap_line_id}</h2>`;
+
+
+
+      // Show whether a predicted best match exists
+      if (!data.predicted_best) {
+        html += '<p style="color: #b22222; font-weight: bold;">No predicted best match (historical_ap_line_id: null)</p>';
+      } else {
+        html += `<p style="color: #116611; font-weight: bold;">Predicted best: ${data.predicted_best.ap_line_id} (score: ${data.predicted_best.score.toFixed(3)})</p>`;
+      }
+
+      // Show canonicalized incoming details for quick contrast
+      if (data.incoming) {
+        html += '<h3>Incoming (canonical)</h3>';
+        html += '<table><tbody>';
+        html += `<tr><th style="text-align:left">Vendor</th><td>${data.incoming.vendor_name||''}</td></tr>`;
+        html += `<tr><th style="text-align:left">Description</th><td>${data.incoming.item_description||''}</td></tr>`;
+        html += `<tr><th style="text-align:left">SKU</th><td>${data.incoming.item_sku||''}</td></tr>`;
+        html += `<tr><th style="text-align:left">Quantity</th><td>${data.incoming.quantity||''}</td></tr>`;
+        html += `<tr><th style="text-align:left">Unit Price</th><td>${data.incoming.unit_price||''}</td></tr>`;
+        html += `<tr><th style="text-align:left">Line Amount</th><td>${data.incoming.line_total_amount||''} ${data.incoming.currency||''}</td></tr>`;
+        html += '</tbody></table>';
+      }
+
+      html += '<h3>Top Candidates</h3>';
+      html += '<table><thead><tr><th>Rank</th><th>Historical ID</th><th>Score</th><th>Vendor</th><th>Description</th><th>Line Amount</th></tr></thead><tbody>';
+      for (const c of data.candidates) {
+        html += `<tr><td>${c.rank}</td><td>${c.ap_line_id}</td><td class="score">${(c.score||0).toFixed(3)}</td><td>${c.vendor_name||''}</td><td>${c.item_description||''}</td><td>${c.line_total_amount||''}</td></tr>`;
+      }
+      html += '</tbody></table>'; out.innerHTML = html;
+    });
+  </script>
+</body>
+</html>
