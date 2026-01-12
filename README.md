@@ -11,7 +11,7 @@ Run with Docker Compose (recommended):
    docker-compose up --build
 
 2. The API will be available locally on http://localhost:8000
-3. The API is deployed through AWS and is publically accessible on http://3.144.97.206:8000/
+3. The API is deployed through AWS and is publicly accessible on http://3.144.97.206:8000/
 
 Endpoints:
 
