@@ -49,14 +49,21 @@ Request JSON: any messy incoming record that contains at least `ap_line_id`; com
 
 Example curl:
 ```bash
-curl -X POST http://localhost:8000/match \
-  -H "Content-Type: application/json" \
-  -d '{"ap_line_id":"APN-00000002","vendor_name":"SilverLine Precision","item_description":"ATEX 3in EPDM Stainless Valve, 16 bar","line_total_amount":7522.82}'
+curl -X 'POST' \
+  'http://3.144.97.206:8000/match' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{"ap_line_id": "APN-00000002", "purch_order_key": "NPO-2025-000001", "polnno": "20", "bill_identifier": "NINV-2025-000001", "memodetails": "capital spares - silverline REF-31", "supplier_code": "VEN0020", "suppliername": "SilverLine Precision", "supplier_country": "CA", "vendor_type": "Chemical Supplier", "productcatkey": "MRO-77", "material_category_nm": "Mechanical MRO", "itemitem_code": "VAL 12397", "material_description": "ATEX 3in EPDM Stainless Valve, 16 bar", "raw_uom": "BOX", "qty_ordered": "1", "eachrate": "7178.50", "lntotal": "7178.70", "discount-amount": "", "vat_cd": "TX", "vat_total": "344.00", "freight-amount": "", "line_itemsumamt": "7522.82", "raw_currency": "CAD", "purch_order_date": "2025-08-19", "promise_dt": "", "receivedDate": "", "invoice_dt": "", "pay_by_dt": "2025-11-05", "pay_terms": "2%10 NET30", "PAYMENT_STATUS": "PAID", "approval_status": "APPROVED", "plant_field": "PLT-MW2", "cccenter": "QC-310", "gl_ledger_account": "5210 MRO Mechanical", "requestor": "R. Kim", "deliver_todest": "PLT-MW2 Receiving 1", "lot_no_batch": "", "purchase_ordertotalamt": "52725.00", "invoicetotaltotal": "52717.30", "linestatus": "OPEN"}
+'
 ```
 
 Response:
 ```json
-{ "incoming_ap_line_id": "APN-00000002", "historical_ap_line_id": "AP-00000042", "score": 0.82 }
+{
+  "incoming_ap_line_id": "APN-00000002",
+  "historical_ap_line_id": "AP-00007876",
+  "score": 0.9965925942436968
+}
 ```
 `historical_ap_line_id` may be `null` when the system is not confident.
 
