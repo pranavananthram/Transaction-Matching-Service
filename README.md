@@ -1,36 +1,119 @@
-# SpendAI Matching Service
+# SpendAI - Transaction Matching Service
 
-Quick start
+A service that matches incoming Accounts Payable (AP) line items to historical AP lines using fuzzy and vector techniques.
 
-Prerequisites: Docker & docker-compose OR a Python 3.11 environment.
+## Overview
+- Language: Python 3.11, FastAPI
+- DB: SQLite by default (or PostgreSQL if `DATABASE_URL` provided)
+- Matching: TF‑IDF on `vendor_name + item_description` for candidate retrieval, combined scoring (text cosine + vendor fuzzy + description fuzzy + amount similarity) for ranking and thresholding.
 
-Run with Docker Compose (recommended):
+## Quick start (Docker Compose)
+1. From repository root:
 
-1. Build and start:
+```bash
+docker compose up --build
+```
 
-   docker-compose up --build
+2. API available: http://localhost:8000
+- Interactive docs: http://localhost:8000/docs
+- Basic health check: GET http://localhost:8000/health
 
-2. The API will be available locally on http://localhost:8000
-3. The API is deployed through AWS and is publicly accessible on http://3.144.97.206:8000/
+## Run locally (without Docker)
+Create and activate a Python 3.11 environment (conda or venv), then:
 
-Endpoints:
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+```
 
-- POST /historical/load — multipart file upload (CSV) to load historical rows and build TF-IDF index
-- POST /match — JSON payload of a single incoming AP line, returns {incoming_ap_line_id, historical_ap_line_id|null, score}
-- GET /health — basic health check
+## Loading historical data
+Load a historical CSV using the API endpoint:
 
-Batch prediction (local):
+```bash
+curl -X POST "http://localhost:8000/historical/load" -F "file=@/path/to/historical_ap_data.csv"
+```
 
-From the project root run:
+What this does:
+- Normalizes common field aliases and stores rows in the DB (`spendai.db` by default)
+- Builds and saves TF‑IDF vectorizer and matrix to `app/data/` (files: `tfidf_vectorizer.joblib`, `tfidf_matrix.joblib`)
 
-python scripts/batch_predict.py C:\path\to\historical_ap_data.csv C:\path\to\incoming_ap_data.jsonl --out match_map.csv
+Notes:
+- If you do not upload data (and the TF‑IDF artifacts don't exist), `POST /match` will fail to load indices; use `/historical/load` first.
 
-This will produce `match_map.csv` with columns: incoming_ap_line_id, historical_ap_line_id, score.
+## Match one incoming record (real-time)
+Endpoint: POST `/match`
 
-Notes & next steps:
+Request JSON: any messy incoming record that contains at least `ap_line_id`; common fields used: `vendor_name`, `item_description`, `line_total_amount`. The API accepts a wide range of aliases.
 
-- Normalization rules are basic; consider expanding vendor and description cleaning, currency conversions, and improved candidate pruning.
-- Thresholding for "no match" is currently 0.6 (mean of combined scores); tune with labeled data.
+Example curl:
+```bash
+curl -X POST http://localhost:8000/match \
+  -H "Content-Type: application/json" \
+  -d '{"ap_line_id":"APN-00000002","vendor_name":"SilverLine Precision","item_description":"ATEX 3in EPDM Stainless Valve, 16 bar","line_total_amount":7522.82}'
+```
+
+Response:
+```json
+{ "incoming_ap_line_id": "APN-00000002", "historical_ap_line_id": "AP-00000042", "score": 0.82 }
+```
+`historical_ap_line_id` may be `null` when the system is not confident.
+
+## Debug / UI
+- There is a simple debug UI served at http://localhost:8000/ (paste JSON and click Match) that calls `POST /match/debug` and displays the canonicalized incoming fields and top-k candidates with scores.
+
+## Batch prediction (generate `match_map.csv`)
+Use the included script:
+
+```bash
+python scripts/batch_predict.py path/to/historical_ap_data.csv path/to/incoming_ap_data.jsonl --out match_map.csv
+```
+
+Output format (exact schema required):
+```csv
+incoming_ap_line_id,historical_ap_line_id
+APN-00000022,AP-00000001
+APN-00008976,AP-00000678
+...
+```
+When no match is predicted, `historical_ap_line_id` is blank.
+
+## How the matcher works
+1. **Canonicalization:** incoming and historical rows are normalized (field alias mapping, simple cleaning). Deterministic keys like invoice IDs and PO numbers are intentionally not included in the `search_text` used for TF‑IDF.
+2. **TF‑IDF index:** vectorizer built over `vendor_name + item_description` (ngram 1-2, preconfigured stop words and sensible `max_features`) and saved to disk.
+3. **Candidate retrieval:** `NearestNeighbors` (cosine) finds the top-K candidates quickly.
+4. **Combined scoring:** per-candidate score is the mean of:
+   - cosine similarity (1 - distance)
+   - vendor fuzzy match (RapidFuzz token_sort_ratio)
+   - description fuzzy match
+   - amount similarity (robust relative comparison or neutral when missing)
+5. **Thresholding:** default threshold is 0.6 for returning a match; otherwise `null`.
+
+This combination uses TF‑IDF for efficient retrieval and multiple complementary signals for robust ranking.
+
+## Important design choices
+- **Do not rely on deterministic keys**: invoice numbers, PO numbers, vendor IDs are not used for matching (they may be stored but not used as signals). This is intentional given the problem spec.
+- **Extensible scoring**: weights and scoring function can be tuned if labeled data is available.
+
+## Troubleshooting
+- If `/match` returns errors, verify that TF‑IDF artifacts exist: `app/data/tfidf_vectorizer.joblib` and `app/data/tfidf_matrix.joblib`.
+- To rebuild the index, re-run `POST /historical/load` with the historical CSV.
+- If you prefer to run locally without Postgres, set `DATABASE_URL` to a SQLite URL (default is `sqlite:///./spendai.db`).
+
+## File layout (key files)
+- `app/` — FastAPI app and core logic
+  - `app/loader.py` — canonicalization and index building
+  - `app/matcher.py` — TF‑IDF loading, NN retrieval, scoring
+  - `app/api.py` — endpoints (`/match`, `/match/debug`, `/historical/load`)
+  - `app/static/index.html` — simple debug UI
+- `scripts/batch_predict.py` — produce `match_map.csv` in batch
+- `historical_ap_data.csv`, `incoming_ap_data.jsonl` — sample inputs
+
+## Next improvements (ideas)
+- Currency conversion, date proximity, quantity/unit normalization, and learned ranking (if labeled matches exist).
+
+---
+If anything in this README should be expanded or adjusted (more examples, screenshots, or CI instructions), I can update it. Happy to add sample `curl` workflows or a short demo script.
+
 # How to run SpendAI (Docker Compose)
 
 This document describes how to start the SpendAI matching service using Docker Compose and how to perform the common operational steps (load historical data, run batch predictions, inspect the API).
