@@ -81,7 +81,7 @@ When no match is predicted, `historical_ap_line_id` is blank.
 
 ## How the matcher works
 1. **Canonicalization:** incoming and historical rows are normalized (field alias mapping, simple cleaning). Deterministic keys like invoice IDs and PO numbers are intentionally not included in the `search_text` used for TF‑IDF.
-2. **TF‑IDF index:** vectorizer built over `vendor_name + item_description` (ngram 1-2, preconfigured stop words and sensible `max_features`) and saved to disk.
+2. **TF‑IDF index:** vectorizer built over `vendor_name + item_description` 
 3. **Candidate retrieval:** `NearestNeighbors` (cosine) finds the top-K candidates quickly.
 4. **Combined scoring:** per-candidate score is the mean of:
    - cosine similarity (1 - distance)
@@ -114,11 +114,10 @@ This combination uses TF‑IDF for efficient retrieval and multiple complementar
 - Currency conversion, date proximity, quantity/unit normalization, and learned ranking (if labeled matches exist).
 
 ---
-If anything in this README should be expanded or adjusted (more examples, screenshots, or CI instructions), I can update it. Happy to add sample `curl` workflows or a short demo script.
 
 # How to run SpendAI (Docker Compose)
 
-This document describes how to start the SpendAI matching service using Docker Compose and how to perform the common operational steps (load historical data, run batch predictions, inspect the API).
+This section describes how to start the SpendAI matching service using Docker Compose and how to perform the common operational steps (load historical data, run batch predictions, inspect the API).
 
 ## Prerequisites
 - Docker & Docker Compose installed
@@ -160,6 +159,3 @@ python scripts/batch_predict.py /path/to/historical_ap_data.csv /path/to/incomin
 ```
 
 This will ensure the index exists, run matching for each incoming record, and write the CSV.
-
----
-For more detailed developer instructions (running locally, debugging, and API endpoints) see `README.md`.
