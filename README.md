@@ -1,4 +1,4 @@
-# SpendAI - Transaction Matching Service
+# Transaction Matching Service
 
 A service that matches incoming Accounts Payable (AP) line items to historical AP lines using fuzzy and vector techniques.
 
@@ -122,7 +122,7 @@ This combination uses TF‑IDF for efficient retrieval and multiple complementar
 
 ---
 
-# How to run SpendAI (Docker Compose)
+# How to run (Docker Compose)
 
 This section describes how to start the SpendAI matching service using Docker Compose and how to perform the common operational steps (load historical data, run batch predictions, inspect the API).
 
